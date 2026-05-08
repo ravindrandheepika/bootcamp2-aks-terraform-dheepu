@@ -75,20 +75,23 @@ stages:
   condition: succeeded()
 
   jobs:
-  - job: apply
-    steps:
-    -checkout: self
-    clean: true
+- job: apply
+  displayName: 'Terraform Apply'
+  dependsOn: TerraformPlan
+  condition: succeeded()
+  steps:
+    - checkout: self
+      clean: true
 
     # Install Terraform
     - task: TerraformInstaller@1
-      displayName: Install Terraform
+      displayName: 'Install Terraform'
       inputs:
         terraformVersion: $(terraformVersion)
 
     # Terraform Init
     - task: TerraformTaskV4@4
-      displayName: Terraform Init
+      displayName: 'Terraform Init'
       inputs:
         provider: 'azurerm'
         command: 'init'
