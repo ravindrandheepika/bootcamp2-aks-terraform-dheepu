@@ -76,7 +76,6 @@ stages:
   jobs:
     - job: apply
       displayName: 'Terraform Apply'
-      dependsOn: TerraformPlan
       condition: succeeded()
       steps:
         - checkout: self
