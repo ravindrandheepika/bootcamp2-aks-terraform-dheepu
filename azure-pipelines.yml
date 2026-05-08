@@ -94,11 +94,11 @@ stages:
             provider: 'azurerm'
             command: 'init'
             workingDirectory: $(workingDir)
-            backendServiceArm: $(serviceConnection)
+            backendServiceArm: 'azure-connection'
             backendAzureRmResourceGroupName: 'demo-aks'
             backendAzureRmStorageAccountName: 'tfstateaksdevdheepu143'
             backendAzureRmContainerName: 'demo'
-            backendAzureRmKey: 'dev.terraform.tfstate'
+            backendAzureRmKey: 'aks.tfstate'
 
         # Download tfplan
         - task: DownloadPipelineArtifact@2
@@ -114,5 +114,5 @@ stages:
             provider: 'azurerm'
             command: 'apply'
             workingDirectory: $(workingDir)
-            environmentServiceNameAzureRM: $(serviceConnection)
+            environmentServiceNameAzureRM: 'azure-connection'
             commandOptions: 'tfplan'
