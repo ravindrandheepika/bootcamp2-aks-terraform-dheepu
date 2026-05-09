@@ -6,27 +6,30 @@ pool:
 
 variables:
   terraformVersion: '1.6.6'
+  workingDir: 'environments/dev'
+
+stages:
 
 # =========================
 # DEV PLAN STAGE
 # =========================
-- stage: TerraformPlanDev
-  displayName: "Terraform Plan - DEV"
-  variables:
-    workingDir: 'environments/dev'
+- stage: TerraformPlan
+  displayName: Terraform Plan
   jobs:
-  - job: planDev
+  - job: plan
     steps:
     - checkout: self
       clean: true
 
+    # Install Terraform
     - task: TerraformInstaller@1
       displayName: Install Terraform
       inputs:
         terraformVersion: $(terraformVersion)
 
+    # Terraform Init
     - task: TerraformTaskV4@4
-      displayName: Terraform Init (DEV)
+      displayName: Terraform Init
       inputs:
         provider: 'azurerm'
         command: 'init'
@@ -37,15 +40,17 @@ variables:
         backendAzureRmContainerName: 'demo'
         backendAzureRmKey: 'aks.tfstate'
 
+    # Terraform Validate
     - task: TerraformTaskV4@4
-      displayName: Terraform Validate (DEV)
+      displayName: Terraform Validate
       inputs:
         provider: 'azurerm'
         command: 'validate'
         workingDirectory: $(workingDir)
 
+    # Terraform Plan
     - task: TerraformTaskV4@4
-      displayName: Terraform Plan (DEV)
+      displayName: Terraform Plan
       inputs:
         provider: 'azurerm'
         command: 'plan'
@@ -53,24 +58,81 @@ variables:
         environmentServiceNameAzureRM: 'azure-connection'
         commandOptions: '-var-file=dev.tfvars -out=tfplan'
 
+    # Publish tfplan
     - task: PublishPipelineArtifact@1
-      displayName: Publish DEV tfplan
+      displayName: Publish tfplan
       inputs:
         targetPath: '$(workingDir)/tfplan'
-        artifact: dev-tfplan
+        artifact: tfplan
 
 
 # =========================
 # DEV APPLY STAGE
 # =========================
-- stage: TerraformApplyDev
-  displayName: "Terraform Apply - DEV"
-  dependsOn: TerraformPlanDev
+- stage: TerraformApply
+  displayName: Terraform Apply
+  dependsOn: TerraformPlan
+  condition: succeeded()
+  jobs:
+    - job: apply
+      displayName: 'Terraform Apply'
+      condition: succeeded()
+      steps:
+        - checkout: self
+          clean: true
+
+        # Install Terraform
+        - task: TerraformInstaller@1
+          displayName: 'Install Terraform'
+          inputs:
+            terraformVersion: $(terraformVersion)
+
+        # Terraform Init
+        - task: TerraformTaskV4@4
+          displayName: 'Terraform Init'
+          inputs:
+            provider: 'azurerm'
+            command: 'init'
+            workingDirectory: $(workingDir)
+            backendServiceArm: 'azure-connection'
+            backendAzureRmResourceGroupName: 'demo-aks'
+            backendAzureRmStorageAccountName: 'tfstateaksdevdheepu143'
+            backendAzureRmContainerName: 'demo'
+            backendAzureRmKey: 'aks.tfstate'
+
+        # Download tfplan
+        - task: DownloadPipelineArtifact@2
+          displayName: 'Download tfplan'
+          inputs:
+            artifact: tfplan
+            path: $(workingDir)
+
+        # Terraform Apply
+        - task: TerraformTaskV4@4
+          displayName: 'Terraform Apply'
+          inputs:
+            provider: 'azurerm'
+            command: 'apply'
+            workingDirectory: $(workingDir)
+            environmentServiceNameAzureRM: 'azure-connection'
+            commandOptions: 'tfplan'
+
+
+# ============================================================
+# ======================= PROD SECTION ========================
+# ============================================================
+
+# =========================
+# PROD PLAN STAGE
+# =========================
+- stage: TerraformPlanProd
+  displayName: "Terraform Plan - PROD"
+  dependsOn: TerraformApply
   condition: succeeded()
   variables:
-    workingDir: 'environments/dev'
+    workingDir: 'environments/prod'
   jobs:
-  - job: applyDev
+  - job: planProd
     steps:
     - checkout: self
       clean: true
@@ -80,31 +142,80 @@ variables:
       inputs:
         terraformVersion: $(terraformVersion)
 
-        # Terraform Init
-        - task: TerraformTaskV4@4
-          displayName: 'Terraform Init'
-          inputs:
-            provider: 'azurerm'
-            command: 'init'
-            workingDirectory: $(workingDir)
-            backendServiceArm: $(serviceConnection)
-            backendAzureRmResourceGroupName: 'demo-aks'
-            backendAzureRmStorageAccountName: 'tfstateaksdevdheepu143'
-            backendAzureRmContainerName: 'demo'
-            backendAzureRmKey: 'dev.terraform.tfstate'
-
-    - task: DownloadPipelineArtifact@2
-      displayName: Download DEV tfplan
+    - task: TerraformTaskV4@4
+      displayName: Terraform Init (PROD)
       inputs:
-        artifact: dev-tfplan
-        path: $(workingDir)
+        provider: 'azurerm'
+        command: 'init'
+        workingDirectory: $(workingDir)
+        backendServiceArm: 'azure-connection'
+        backendAzureRmResourceGroupName: 'demo-aks'
+        backendAzureRmStorageAccountName: 'tfstateaksproddheepu143'
+        backendAzureRmContainerName: 'demo'
+        backendAzureRmKey: 'prod.tfstate'
 
-        # Terraform Apply
-        - task: TerraformTaskV4@4
-          displayName: 'Terraform Apply'
-          inputs:
-            provider: 'azurerm'
-            command: 'apply'
-            workingDirectory: $(workingDir)
-            environmentServiceNameAzureRM: $(serviceConnection)
-            commandOptions: 'tfplan'
+    - task: TerraformTaskV4@4
+      displayName: Terraform Plan (PROD)
+      inputs:
+        provider: 'azurerm'
+        command: 'plan'
+        workingDirectory: $(workingDir)
+        environmentServiceNameAzureRM: 'azure-connection'
+        commandOptions: '-var-file=prod.tfvars -out=tfplan'
+
+    - task: PublishPipelineArtifact@1
+      displayName: Publish PROD tfplan
+      inputs:
+        targetPath: '$(workingDir)/tfplan'
+        artifact: prod-tfplan
+
+
+# =========================
+# PROD APPLY STAGE (WITH APPROVAL)
+# =========================
+- stage: TerraformApplyProd
+  displayName: "Terraform Apply - PROD"
+  dependsOn: TerraformPlanProd
+  condition: succeeded()
+  jobs:
+  - deployment: applyProd
+    displayName: "Terraform Apply - PROD"
+    environment: "prod"   # <-- approval required
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+            clean: true
+
+          - task: TerraformInstaller@1
+            displayName: Install Terraform
+            inputs:
+              terraformVersion: $(terraformVersion)
+
+          - task: TerraformTaskV4@4
+            displayName: Terraform Init (PROD)
+            inputs:
+              provider: 'azurerm'
+              command: 'init'
+              workingDirectory: 'environments/prod'
+              backendServiceArm: 'azure-connection'
+              backendAzureRmResourceGroupName: 'demo-aks'
+              backendAzureRmStorageAccountName: 'tfstateaksproddheepu143'
+              backendAzureRmContainerName: 'demo'
+              backendAzureRmKey: 'prod.tfstate'
+
+          - task: DownloadPipelineArtifact@2
+            displayName: Download PROD tfplan
+            inputs:
+              artifact: prod-tfplan
+              path: 'environments/prod'
+
+          - task: TerraformTaskV4@4
+            displayName: Terraform Apply (PROD)
+            inputs:
+              provider: 'azurerm'
+              command: 'apply'
+              workingDirectory: 'environments/prod'
+              environmentServiceNameAzureRM: 'azure-connection'
+              commandOptions: 'tfplan'
