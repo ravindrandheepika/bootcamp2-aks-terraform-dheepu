@@ -6,30 +6,27 @@ pool:
 
 variables:
   terraformVersion: '1.6.6'
-  workingDir: 'environments/dev'
-
-stages:
 
 # =========================
-# PLAN STAGE
+# DEV PLAN STAGE
 # =========================
-- stage: TerraformPlan
-  displayName: Terraform Plan
+- stage: TerraformPlanDev
+  displayName: "Terraform Plan - DEV"
+  variables:
+    workingDir: 'environments/dev'
   jobs:
-  - job: plan
+  - job: planDev
     steps:
     - checkout: self
       clean: true
 
-    # Install Terraform
     - task: TerraformInstaller@1
       displayName: Install Terraform
       inputs:
         terraformVersion: $(terraformVersion)
 
-    # Terraform Init
     - task: TerraformTaskV4@4
-      displayName: Terraform Init
+      displayName: Terraform Init (DEV)
       inputs:
         provider: 'azurerm'
         command: 'init'
@@ -40,17 +37,15 @@ stages:
         backendAzureRmContainerName: 'demo'
         backendAzureRmKey: 'aks.tfstate'
 
-    # Terraform Validate
     - task: TerraformTaskV4@4
-      displayName: Terraform Validate
+      displayName: Terraform Validate (DEV)
       inputs:
         provider: 'azurerm'
         command: 'validate'
         workingDirectory: $(workingDir)
 
-    # Terraform Plan
     - task: TerraformTaskV4@4
-      displayName: Terraform Plan
+      displayName: Terraform Plan (DEV)
       inputs:
         provider: 'azurerm'
         command: 'plan'
@@ -58,34 +53,32 @@ stages:
         environmentServiceNameAzureRM: 'azure-connection'
         commandOptions: '-var-file=dev.tfvars -out=tfplan'
 
-    # Publish tfplan
     - task: PublishPipelineArtifact@1
-      displayName: Publish tfplan
+      displayName: Publish DEV tfplan
       inputs:
         targetPath: '$(workingDir)/tfplan'
-        artifact: tfplan
+        artifact: dev-tfplan
 
 
 # =========================
-# APPLY STAGE
+# DEV APPLY STAGE
 # =========================
-- stage: TerraformApply
-  displayName: Terraform Apply
-  dependsOn: TerraformPlan
+- stage: TerraformApplyDev
+  displayName: "Terraform Apply - DEV"
+  dependsOn: TerraformPlanDev
   condition: succeeded()
+  variables:
+    workingDir: 'environments/dev'
   jobs:
-    - job: apply
-      displayName: 'Terraform Apply'
-      condition: succeeded()
-      steps:
-        - checkout: self
-          clean: true
+  - job: applyDev
+    steps:
+    - checkout: self
+      clean: true
 
-        # Install Terraform
-        - task: TerraformInstaller@1
-          displayName: 'Install Terraform'
-          inputs:
-            terraformVersion: $(terraformVersion)
+    - task: TerraformInstaller@1
+      displayName: Install Terraform
+      inputs:
+        terraformVersion: $(terraformVersion)
 
         # Terraform Init
         - task: TerraformTaskV4@4
@@ -94,18 +87,17 @@ stages:
             provider: 'azurerm'
             command: 'init'
             workingDirectory: $(workingDir)
-            backendServiceArm: 'azure-connection'
+            backendServiceArm: $(serviceConnection)
             backendAzureRmResourceGroupName: 'demo-aks'
             backendAzureRmStorageAccountName: 'tfstateaksdevdheepu143'
             backendAzureRmContainerName: 'demo'
-            backendAzureRmKey: 'aks.tfstate'
+            backendAzureRmKey: 'dev.terraform.tfstate'
 
-        # Download tfplan
-        - task: DownloadPipelineArtifact@2
-          displayName: 'Download tfplan'
-          inputs:
-            artifact: tfplan
-            path: $(workingDir)
+    - task: DownloadPipelineArtifact@2
+      displayName: Download DEV tfplan
+      inputs:
+        artifact: dev-tfplan
+        path: $(workingDir)
 
         # Terraform Apply
         - task: TerraformTaskV4@4
@@ -114,5 +106,5 @@ stages:
             provider: 'azurerm'
             command: 'apply'
             workingDirectory: $(workingDir)
-            environmentServiceNameAzureRM: 'azure-connection'
+            environmentServiceNameAzureRM: $(serviceConnection)
             commandOptions: 'tfplan'
