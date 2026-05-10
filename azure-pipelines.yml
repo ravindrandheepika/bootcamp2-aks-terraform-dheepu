@@ -152,10 +152,18 @@ stages:
         backendAzureRmContainerName: 'demo'
         backendAzureRmKey: 'prod.tfstate'
 
-    - script: |
-        cd $(workingDir)
-        terraform plan -var-file=prod.tfvars -out=tfplan
-      displayName: "Terraform Plan (PROD)"
+    # ⭐ FIX: Force correct working directory before plan
+    - script: cd $(workingDir)
+      displayName: "Change directory to PROD"
+
+    - task: TerraformTaskV4@4
+      displayName: Terraform Plan (PROD)
+      inputs:
+        provider: 'azurerm'
+        command: 'plan'
+        workingDirectory: $(workingDir)
+        environmentServiceNameAzureRM: 'azure-connection'
+        commandOptions: '-var-file=prod.tfvars -out=tfplan'
 
     - task: PublishPipelineArtifact@1
       displayName: Publish PROD tfplan
