@@ -180,7 +180,7 @@ stages:
   jobs:
   - deployment: applyProd
     displayName: "Terraform Apply - PROD"
-    environment: "prod"   # <-- approval required
+    environment: "prod"
     strategy:
       runOnce:
         deploy:
@@ -205,9 +205,11 @@ stages:
               backendAzureRmContainerName: 'demo'
               backendAzureRmKey: 'prod.tfstate'
 
+
           - task: DownloadPipelineArtifact@2
             displayName: Download PROD tfplan
             inputs:
+              buildType: 'current'
               artifact: prod-tfplan
               path: 'environments/prod'
 
