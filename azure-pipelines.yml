@@ -41,7 +41,7 @@ stages:
         backendAzureRmResourceGroupName: 'demo-aks'
         backendAzureRmStorageAccountName: 'tfstateaksdevdheepu143'
         backendAzureRmContainerName: 'demo'
-        backendAzureRmKey: 'aks.tfstate'
+        backendAzureRmKey: 'dev.terraform.tfstate'
 
     - task: TerraformTaskV4@4
       displayName: Terraform Validate
@@ -97,7 +97,7 @@ stages:
             backendAzureRmResourceGroupName: 'demo-aks'
             backendAzureRmStorageAccountName: 'tfstateaksdevdheepu143'
             backendAzureRmContainerName: 'demo'
-            backendAzureRmKey: 'aks.tfstate'
+            backendAzureRmKey: 'dev.terraform.tfstate'
 
         - task: DownloadPipelineArtifact@2
           displayName: Download tfplan
@@ -150,7 +150,7 @@ stages:
         backendAzureRmResourceGroupName: 'demo-aks'
         backendAzureRmStorageAccountName: 'tfstateaksproddheepu143'
         backendAzureRmContainerName: 'demo'
-        backendAzureRmKey: 'prod.tfstate'
+        backendAzureRmKey: 'prod.terraform.tfstate'
 
     # ⭐ FIX: Force correct working directory before plan
     - script: cd $(workingDir)
@@ -207,7 +207,7 @@ stages:
               backendAzureRmResourceGroupName: 'demo-aks'
               backendAzureRmStorageAccountName: 'tfstateaksproddheepu143'
               backendAzureRmContainerName: 'demo'
-              backendAzureRmKey: 'prod.tfstate'
+              backendAzureRmKey: 'prod.terraform.tfstate'
 
           - task: DownloadPipelineArtifact@2
             displayName: Download PROD tfplan
